@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz de Sociologia - Mundo do Trabalho</title>
+    <!-- Carregando Tailwind CSS para estilização rápida e responsiva -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Configuração de fontes e cores personalizadas do Tailwind -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-blue': '#1a00ff',
+                        'secondary-red': '#ff3d00',
+                        'button-bg': '#cc0000',
+                        'button-hover': '#ff0000',
+                        'button-shadow': 'rgba(0, 0, 0, 0.4)',
+                        'dark-blue': '#00008b',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Estilos personalizados para o visual do quiz show */
+        .quiz-title-shadow {
+            text-shadow: 0 0 10px #000, 0 0 5px #000;
+        }
+
+        .answer-button {
+            /* Fundo gradiente para o visual "botão brilhante" */
+            background: linear-gradient(180deg, #ff6666 0%, #cc0000 100%);
+            box-shadow: 0 4px 0 #800000, 0 6px 15px rgba(0, 0, 0, 0.6);
+            transition: all 0.1s ease;
+        }
+
+        .answer-button:hover:not(.disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 0 #800000, 0 8px 20px rgba(0, 0, 0, 0.8);
+        }
+
+        .answer-button.correct {
+            background: linear-gradient(180deg, #66ff66 0%, #00cc00 100%);
+            box-shadow: 0 4px 0 #008000, 0 6px 15px rgba(0, 0, 0, 0.6);
+            animation: pulse-green 0.5s infinite alternate;
+        }
+
+        .answer-button.incorrect {
+            background: linear-gradient(180deg, #ff9966 0%, #ff4500 100%);
+            box-shadow: 0 4px 0 #b33000, 0 6px 15px rgba(0, 0, 0, 0.6);
+            animation: shake 0.5s;
+        }
+
+        /* Animações de feedback */
+        @keyframes pulse-green {
+            from { box-shadow: 0 4px 0 #008000, 0 0 15px #00ff00; }
+            to { box-shadow: 0 4px 0 #008000, 0 0 25px #00ff00; }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-5px); }
+            40%, 80% { transform: translateX(5px); }
+        }
+
+        /* Estilo para o relógio/timer */
+        .timer-box {
+            border: 4px solid white;
+            padding: 1rem;
+            border-radius: 12px;
+            background-color: #00008b; /* Darker blue background */
+            box-shadow: 0 0 15px rgba(255, 255, 0, 0.5);
+        }
+
+        /* Estilo da Seção de Ajuda (imita o jogo) */
+        .help-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0.5rem;
+            cursor: pointer;
+            transition: transform 0.1s;
+            /* Garantir que todos os itens de ajuda tenham o mesmo tamanho */
+            flex: 1 1 30%; /* Permite crescimento flexível e base 30% */
+            min-width: 80px; /* Garante que não fiquem pequenos demais */
+        }
+        .help-item:hover {
+            transform: scale(1.05);
+        }
+        .help-icon {
+            width: 48px;
+            height: 48px;
+            background-color: white;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: black;
+            font-weight: bold;
+        }
+        .help-label {
+            margin-top: 0.25rem;
+            font-size: 0.875rem; /* sm */
+            font-weight: bold;
+            text-shadow: 0 0 5px #000;
+        }
+        .arrow-button {
+            background-color: #00ff00; /* Green */
+            color: #0000ff; /* Blue */
+            font-weight: bold;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+            margin-top: 0.5rem;
+            width: 100%; /* Ocupa a largura total do item */
+            text-align: center;
+        }
+        .arrow-red {
+             background-color: #ff0000; /* Red */
+             color: white;
+        }
+    </style>
+</head>
+
+<body class="bg-primary-blue min-h-screen flex flex-col items-center justify-center p-4 font-sans">
+
+    <!-- Modal de Pausa/Parar (Inicialmente oculto) -->
+    <div id="pause-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4" onclick="togglePause(false)">
+        <div class="bg-white p-8 rounded-lg shadow-2xl text-center max-w-sm w-full" onclick="event.stopPropagation()">
+            <h3 class="text-3xl font-bold text-primary-blue mb-4">Quiz Pausado</h3>
+            <p class="text-gray-700 mb-6">Deseja continuar ou encerrar a rodada?</p>
+            <div class="flex flex-col space-y-4">
+                <button onclick="togglePause(false)" class="bg-green-500 text-white text-xl font-bold py-3 rounded-lg shadow-md hover:bg-green-600 transition">
+                    Continuar Jogando
+                </button>
+                <button onclick="showFinalScore()" class="bg-red-500 text-white text-xl font-bold py-3 rounded-lg shadow-md hover:bg-red-600 transition">
+                    Encerrar Rodada
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Título Principal do Quiz (Somente uma linha) -->
+    <h1 class="text-4xl md:text-5xl lg:text-6xl text-white font-extrabold mb-8 uppercase text-center quiz-title-shadow">
+        Quiz de Sociologia
+    </h1>
+    <!-- A segunda linha do título foi removida (Mundo do Trabalho, Cultura e Sociedade) -->
+
+    <div class="w-full max-w-6xl flex flex-col lg:flex-row gap-6">
+
+        <!-- Coluna da Pergunta e Respostas (Painel Principal) -->
+        <div class="flex-grow lg:w-3/4 bg-primary-blue border-4 border-yellow-400 rounded-xl shadow-2xl p-4 md:p-6">
+            
+            <!-- Caixa da Pergunta (Estilo Retangular Vermelho) -->
+            <div class="flex justify-between items-start mb-6">
+                <div id="question-box" class="bg-secondary-red text-white text-xl md:text-2xl font-bold p-4 md:p-6 rounded-lg shadow-inner border-2 border-white flex-grow mr-4">
+                    <!-- Conteúdo da pergunta será injetado aqui -->
+                </div>
+                <!-- Botão de Narração -->
+                <button id="narrate-button" onclick="narrateQuestion()" class="bg-green-500 text-white p-3 rounded-lg shadow-xl hover:bg-green-600 flex-shrink-0" title="Narrar Pergunta">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M9.383 2.067a1.012 1.012 0 011.234 0l3.758 1.956A1 1 0 0115 4.966V15.034a1 1 0 01-.625.938l-3.758 1.956a1.012 1.012 0 01-1.234 0l-3.758-1.956A1 1 0 015 15.034V4.966a1 1 0 01.625-.938l3.758-1.956zM17.5 10a7.5 7.5 0 11-15 0 7.5 7.5 0 0115 0zm-7.5-5.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11z" clip-rule="evenodd" fill-rule="evenodd"></path></svg>
+                </button>
+            </div>
+
+
+            <!-- Botões de Resposta (Grid Responsivo para 5 opções) -->
+            <div id="answer-options" class="grid grid-cols-1 gap-4">
+                <!-- Botões serão injetados aqui (A, B, C, D, E) -->
+            </div>
+            
+            <!-- Área de Feedback -->
+            <div id="feedback" class="mt-6 text-center text-3xl font-extrabold text-white min-h-[40px] quiz-title-shadow">
+                <!-- Feedback (Certo/Errado) será exibido aqui -->
+            </div>
+
+            <!-- Botão de Próxima Pergunta -->
+            <div class="flex justify-center mt-6">
+                 <button id="next-button" class="bg-yellow-500 text-primary-blue text-2xl font-bold py-3 px-8 rounded-lg shadow-xl hover:bg-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    Próxima Pergunta
+                </button>
+            </div>
+        </div>
+
+        <!-- Coluna de Ajuda e Placar (Painel Lateral) -->
+        <div class="lg:w-1/4 flex flex-col space-y-4">
+            
+            <!-- Botão de Ação Principal (Parar/Pausar) -->
+            <button id="pause-button" onclick="togglePause(true)" class="bg-red-600 text-white text-center text-3xl font-extrabold p-3 rounded-lg shadow-xl cursor-pointer hover:bg-red-700 uppercase">
+                Parar
+            </button>
+
+            <!-- Relógio/Timer -->
+            <div class="timer-box text-center">
+                <p class="text-xl font-bold text-yellow-400 mb-1">Tempo Restante</p>
+                <p id="timer-display" class="text-6xl font-extrabold text-white">30</p>
+            </div>
+
+            <!-- Painel de DICAS DINÂMICO (Substitui o painel de Ajuda) -->
+            <div class="bg-dark-blue border-4 border-yellow-400 rounded-xl shadow-2xl p-3 text-white text-center flex flex-col space-y-4">
+                
+                <!-- Dicas com Ícones e Botões de Pular (Tudo no mesmo tamanho) -->
+                <div class="flex justify-between items-start gap-1">
+                    
+                    <!-- Cartas/50:50 -->
+                    <div class="help-item bg-primary-blue border border-yellow-400 rounded-lg p-1">
+                        <div class="help-icon bg-yellow-300 text-primary-blue">
+                             <!-- Ícone de Cartas Simples (Placeholder) -->
+                             <span class="text-4xl">🂡</span>
+                        </div>
+                        <span class="help-label text-yellow-300">Cartas</span>
+                        <button class="arrow-button bg-gray-400 text-white flex justify-center items-center text-sm">
+                            Pular
+                            <svg class="w-4 h-4 ml-1" fill="currentColor" viewBox="0 0 20 20"><path d="M10.293 15.293a1 1 0 01-1.414-1.414L13.586 10l-4.707-4.707a1 1 0 011.414-1.414l5.5 5.5a1 1 0 010 1.414l-5.5 5.5z" clip-rule="evenodd" fill-rule="evenodd"></path><path d="M4.293 15.293a1 1 0 01-1.414-1.414L8.586 10 3.293 4.707a1 1 0 011.414-1.414l5.5 5.5a1 1 0 010 1.414l-5.5 5.5z" clip-rule="evenodd" fill-rule="evenodd"></path></svg>
+                        </button>
+                    </div>
+
+                    <!-- Placas/Pontuação -->
+                    <div class="help-item bg-primary-blue border border-yellow-400 rounded-lg p-1">
+                        <div class="help-icon bg-secondary-red text-white">
+                            <!-- Ícone de Placas (Placeholder) -->
+                            <span class="text-3xl">4<sub class="text-lg">3</sub></span>
+                        </div>
+                        <span class="help-label text-yellow-300">Placas</span>
+                        <button class="arrow-button bg-green-500 text-white flex justify-center items-center text-sm">
+                            Pular
+                            <svg class="w-4 h-4 ml-1" fill="currentColor" viewBox="0 0 20 20"><path d="M10.293 15.293a1 1 0 01-1.414-1.414L13.586 10l-4.707-4.707a1 1 0 011.414-1.414l5.5 5.5a1 1 0 010 1.414l-5.5 5.5z" clip-rule="evenodd" fill-rule="evenodd"></path></svg>
+                        </button>
+                    </div>
+
+                    <!-- Convidados/Pular -->
+                    <div class="help-item bg-primary-blue border border-yellow-400 rounded-lg p-1">
+                        <div class="help-icon bg-yellow-500 text-primary-blue">
+                             <!-- Ícone de Convidados (Placeholder) -->
+                             <span class="text-3xl">👨‍👩‍👦</span>
+                        </div>
+                        <span class="help-label text-yellow-300">Convidados</span>
+                        <button class="arrow-button arrow-red flex justify-center items-center text-sm">
+                            Pular
+                            <svg class="w-4 h-4 ml-1" fill="currentColor" viewBox="0 0 20 20"><path d="M10.293 15.293a1 1 0 01-1.414-1.414L13.586 10l-4.707-4.707a1 1 0 011.414-1.414l5.5 5.5a1 1 0 010 1.414l-5.5 5.5z" clip-rule="evenodd" fill-rule="evenodd"></path></svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Botões de Pontuação de Jogo/Aposta (Mantidos para a estética do jogo) -->
+                <div class="flex justify-between gap-1">
+                    <button class="flex-1 bg-yellow-500 text-black text-xs font-bold py-2 px-1 rounded-lg shadow-md hover:bg-yellow-400">1500<br/>Errado</button>
+                    <button class="flex-1 bg-yellow-500 text-black text-xs font-bold py-2 px-1 rounded-lg shadow-md hover:bg-yellow-400">3 MIL<br/>Parar</button>
+                    <button class="flex-1 bg-yellow-500 text-black text-xs font-bold py-2 px-1 rounded-lg shadow-md hover:bg-yellow-400">4 MIL<br/>Acertar</button>
+                </div>
+
+                <!-- Pontuação Atual Reintroduzida -->
+                <div class="mt-4 border-t pt-4 border-yellow-400">
+                    <p class="text-xl font-bold">Pontuação Atual:</p>
+                    <p id="score-display" class="text-4xl text-yellow-400 font-extrabold">0</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variáveis globais para a API Key e URL
+        const apiKey = ""; 
+        const ttsApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+
+        // Array de objetos contendo as perguntas do Quiz
+        const quizData = [
+            {
+                question: "No capitalismo, o que permite a inclusão dos trabalhadores em novos processos produtivos?",
+                options: [
+                    "Associação sindical",
+                    "Participação eleitoral",
+                    "Migração internacional",
+                    "Qualificação profissional",
+                    "Regulamentação funcional"
+                ],
+                correctAnswerIndex: 3 // Índice 3 corresponde a "Qualificação profissional" (D)
+            },
+            // Você pode adicionar mais perguntas aqui
+        ];
+
+        let currentQuestionIndex = 0;
+        let score = 0;
+        const totalQuestions = quizData.length;
+        let timer;
+        let timeLeft = 30;
+        let isPaused = false;
+        let isNarrating = false;
+
+        // Mapeamento dos índices para as letras das opções
+        const optionLetters = ['A', 'B', 'C', 'D', 'E'];
+
+        // Elementos do DOM
+        const questionBox = document.getElementById('question-box');
+        const answerOptionsContainer = document.getElementById('answer-options');
+        const feedbackElement = document.getElementById('feedback');
+        const nextButton = document.getElementById('next-button');
+        const timerDisplay = document.getElementById('timer-display');
+        const pauseModal = document.getElementById('pause-modal');
+        const scoreDisplay = document.getElementById('score-display');
+        const narrateButton = document.getElementById('narrate-button');
+
+
+        // --- Funções Auxiliares para TTS ---
+
+        /**
+         * Converte uma string Base64 (audio data) para um ArrayBuffer.
+         * @param {string} base64 - A string Base64.
+         * @returns {ArrayBuffer}
+         */
+        function base64ToArrayBuffer(base64) {
+            const binary_string = window.atob(base64);
+            const len = binary_string.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binary_string.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        /**
+         * Cria um cabeçalho WAV e retorna um Blob.
+         * @param {Int16Array} pcm16 - Os dados de áudio PCM de 16 bits.
+         * @param {number} sampleRate - A taxa de amostragem.
+         * @returns {Blob} O Blob contendo o arquivo WAV.
+         */
+        function pcmToWav(pcm16, sampleRate) {
+            const buffer = new ArrayBuffer(44 + pcm16.length * 2);
+            const view = new DataView(buffer);
+            
+            // RIFF chunk descriptor
+            writeString(view, 0, 'RIFF'); // ChunkID
+            view.setUint32(4, 36 + pcm16.length * 2, true); // ChunkSize
+            writeString(view, 8, 'WAVE'); // Format
+
+            // fmt sub-chunk
+            writeString(view, 12, 'fmt '); // Subchunk1ID
+            view.setUint32(16, 16, true); // Subchunk1Size (16 for PCM)
+            view.setUint16(20, 1, true); // AudioFormat (1 for PCM)
+            view.setUint16(22, 1, true); // NumChannels (Mono)
+            view.setUint32(24, sampleRate, true); // SampleRate
+            view.setUint32(28, sampleRate * 2, true); // ByteRate (SampleRate * NumChannels * BitsPerSample/8)
+            view.setUint16(32, 2, true); // BlockAlign (NumChannels * BitsPerSample/8)
+            view.setUint16(34, 16, true); // BitsPerSample
+
+            // data sub-chunk
+            writeString(view, 36, 'data'); // Subchunk2ID
+            view.setUint32(40, pcm16.length * 2, true); // Subchunk2Size (NumSamples * NumChannels * BitsPerSample/8)
+
+            // Escreve os dados PCM
+            let offset = 44;
+            for (let i = 0; i < pcm16.length; i++, offset += 2) {
+                view.setInt16(offset, pcm16[i], true);
+            }
+
+            return new Blob([view], { type: 'audio/wav' });
+        }
+
+        /**
+         * Helper para escrever strings em DataView.
+         */
+        function writeString(view, offset, string) {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        }
+
+        /**
+         * Função principal para narrar a pergunta usando TTS.
+         */
+        async function narrateQuestion() {
+            if (isNarrating) return;
+
+            const current = quizData[currentQuestionIndex];
+            if (!current) return;
+
+            // Formata o texto para narração com instrução de estilo
+            let narrationText = `Diga com um tom de narrador de competição animado: Pergunta número ${currentQuestionIndex + 1}. ${current.question}. `;
+            current.options.forEach((option, index) => {
+                narrationText += `Opção ${optionLetters[index]}, ${option}. `;
+            });
+            
+            isNarrating = true;
+            narrateButton.disabled = true;
+            narrateButton.classList.add('opacity-50', 'cursor-not-allowed');
+
+            const payload = {
+                contents: [{
+                    parts: [{ text: narrationText }]
+                }],
+                generationConfig: {
+                    responseModalities: ["AUDIO"],
+                    // MUDANÇA AQUI: Usando a voz "Puck" (Upbeat) para um tom mais animado
+                    speechConfig: {
+                        voiceConfig: {
+                            prebuiltVoiceConfig: { voiceName: "Puck" } 
+                        }
+                    }
+                },
+                model: "gemini-2.5-flash-preview-tts"
+            };
+
+            try {
+                let response = await fetch(ttsApiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                // Lidar com retries (exponential backoff) - Omitido para brevidade no exemplo, mas ideal em produção.
+
+                const result = await response.json();
+                const part = result?.candidates?.[0]?.content?.parts?.[0];
+                const audioData = part?.inlineData?.data;
+                const mimeType = part?.inlineData?.mimeType;
+
+                if (audioData && mimeType && mimeType.startsWith("audio/")) {
+                    const sampleRateMatch = mimeType.match(/rate=(\d+)/);
+                    const sampleRate = sampleRateMatch ? parseInt(sampleRateMatch[1], 10) : 16000;
+                    
+                    const pcmData = base64ToArrayBuffer(audioData);
+                    const pcm16 = new Int16Array(pcmData);
+                    const wavBlob = pcmToWav(pcm16, sampleRate);
+                    const audioUrl = URL.createObjectURL(wavBlob);
+                    
+                    const audio = new Audio(audioUrl);
+                    audio.play();
+
+                    audio.onended = () => {
+                        isNarrating = false;
+                        narrateButton.disabled = false;
+                        narrateButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                    };
+
+                } else {
+                    console.error("Erro na resposta da API TTS:", result);
+                    feedbackElement.textContent = "Erro na narração (API).";
+                }
+
+            } catch (error) {
+                console.error("Erro ao chamar a API TTS:", error);
+                feedbackElement.textContent = "Erro de conexão para narração.";
+            } finally {
+                 // Certifica-se de que o botão seja reativado se houver erro ou falha
+                 if (!isNarrating) { 
+                    narrateButton.disabled = false;
+                    narrateButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                 }
+            }
+        }
+
+
+        // --- Funções do Timer e Pause (Mantidas) ---
+
+        /**
+         * Inicia ou reinicia o cronômetro para a pergunta atual.
+         */
+        function startTimer() {
+            clearInterval(timer); // Limpa qualquer timer anterior
+            timeLeft = 30; // Reseta o tempo
+            timerDisplay.textContent = timeLeft;
+            timerDisplay.classList.remove('text-red-500');
+
+            timer = setInterval(() => {
+                if (isPaused || isNarrating) return; // Não conta se estiver pausado ou narrando
+
+                timeLeft--;
+                timerDisplay.textContent = timeLeft;
+
+                if (timeLeft <= 10) {
+                    timerDisplay.classList.add('text-red-500'); // Fica vermelho no final
+                }
+
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    handleTimeout();
+                }
+            }, 1000);
+        }
+        
+        /**
+         * Lida com o estouro do tempo.
+         */
+        function handleTimeout() {
+            // Se o tempo acabar antes de responder, conta como erro
+            feedbackElement.textContent = "Tempo esgotado! Clique em Próxima Pergunta.";
+            nextButton.disabled = false;
+            // Desabilita os cliques nas respostas
+            answerOptionsContainer.querySelectorAll('.answer-button').forEach(btn => {
+                btn.onclick = null;
+                btn.classList.add('disabled', 'cursor-not-allowed');
+            });
+        }
+
+        /**
+         * Pausa ou despausa o jogo, mostrando o modal.
+         * @param {boolean} shouldPause - Se deve pausar (true) ou despausar (false).
+         */
+        function togglePause(shouldPause) {
+            isPaused = shouldPause;
+            pauseModal.classList.toggle('hidden', !shouldPause);
+        }
+
+
+        // --- Funções do Quiz ---
+
+        /**
+         * Inicializa o quiz, carregando a primeira pergunta.
+         */
+        function initQuiz() {
+            // Verifica se há perguntas para exibir
+            if (quizData.length === 0) {
+                questionBox.innerHTML = "Quiz indisponível. Por favor, adicione perguntas.";
+                return;
+            }
+            displayQuestion();
+        }
+
+        /**
+         * Exibe a pergunta e as opções no DOM.
+         */
+        function displayQuestion() {
+            // Limpa o estado anterior
+            answerOptionsContainer.innerHTML = '';
+            feedbackElement.textContent = '';
+            nextButton.disabled = true;
+            nextButton.style.display = 'inline-block';
+            narrateButton.disabled = false;
+            narrateButton.classList.remove('opacity-50', 'cursor-not-allowed');
+
+            if (currentQuestionIndex >= totalQuestions) {
+                showFinalScore();
+                return;
+            }
+            
+            // Inicia o timer para a nova pergunta
+            isPaused = false;
+            isNarrating = false;
+            startTimer(); 
+
+            const current = quizData[currentQuestionIndex];
+            
+            // 1. Exibe a Pergunta
+            questionBox.innerHTML = `${currentQuestionIndex + 1}. ${current.question}`;
+
+            // 2. Cria os botões de resposta
+            current.options.forEach((option, index) => {
+                const letter = optionLetters[index];
+                const button = document.createElement('button');
+                
+                button.className = `answer-button text-white text-lg md:text-xl font-bold p-3 md:p-4 rounded-lg text-left flex items-center shadow-md`;
+                button.dataset.index = index;
+                button.onclick = () => handleAnswer(index, button);
+
+                button.innerHTML = `
+                    <span class="text-3xl font-extrabold w-8 text-center mr-4">${letter})</span>
+                    <span class="flex-grow">${option}</span>
+                `;
+
+                answerOptionsContainer.appendChild(button);
+            });
+        }
+
+        /**
+         * Lida com a seleção de uma resposta pelo usuário.
+         * @param {number} selectedIndex - O índice da opção selecionada.
+         * @param {HTMLElement} selectedButton - O elemento do botão selecionado.
+         */
+        function handleAnswer(selectedIndex, selectedButton) {
+            clearInterval(timer); // Para o timer assim que responder
+            
+            const current = quizData[currentQuestionIndex];
+            const isCorrect = selectedIndex === current.correctAnswerIndex;
+            const allButtons = answerOptionsContainer.querySelectorAll('.answer-button');
+
+            // 1. Desabilita todos os botões após a resposta
+            allButtons.forEach(btn => {
+                btn.onclick = null; // Remove o evento de clique
+                btn.classList.add('disabled', 'cursor-not-allowed');
+                btn.classList.remove('hover:translate-y-[-2px]', 'hover:shadow-xl'); // Remove hover effect
+            });
+
+            // 2. Aplica o feedback visual
+            if (isCorrect) {
+                selectedButton.classList.add('correct');
+                feedbackElement.textContent = "Certo! Parabéns!";
+                score += (timeLeft > 0 ? 10 + timeLeft : 10); // Pontos extras pelo tempo
+            } else {
+                selectedButton.classList.add('incorrect');
+                feedbackElement.textContent = "Errado. Tente a próxima!";
+                
+                // Realça a resposta correta
+                const correctButton = allButtons[current.correctAnswerIndex];
+                correctButton.classList.add('correct');
+            }
+
+            // 3. Atualiza o placar e ativa o botão "Próxima Pergunta"
+            scoreDisplay.textContent = score; // Atualiza o score no display
+            nextButton.disabled = false;
+            narrateButton.disabled = true; // Desabilita narração após resposta
+            narrateButton.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+
+        /**
+         * Avança para a próxima pergunta.
+         */
+        function nextQuestion() {
+            currentQuestionIndex++;
+            displayQuestion();
+        }
+
+        /**
+         * Exibe o placar final do quiz.
+         */
+        function showFinalScore() {
+            clearInterval(timer);
+            pauseModal.classList.add('hidden'); // Garante que o modal esteja oculto
+            
+            questionBox.textContent = "Fim do Quiz!";
+            answerOptionsContainer.innerHTML = `
+                <div class="text-center text-white text-3xl md:text-4xl p-10 bg-gray-700 rounded-lg shadow-inner">
+                    Você completou todas as perguntas. Sua pontuação final é: 
+                    <span class="text-yellow-400 font-extrabold">${score}</span>!
+                </div>
+            `;
+            feedbackElement.textContent = "Obrigado por jogar!";
+            nextButton.style.display = 'none'; // Esconde o botão de próxima
+        }
+
+        // Event Listeners
+        nextButton.addEventListener('click', nextQuestion);
+        
+        // Inicializa o jogo ao carregar a página
+        window.onload = initQuiz;
+
+    </script>
+</body>
+</html>
